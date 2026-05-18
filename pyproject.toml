@@ -5,13 +5,7 @@
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
     ]
-    dependencies = [
-        "numpy>=2.4.2",
-        "omegaconf>=2.3.0",
-        "polars>=1.39.0",
-        "rich>=14.3.3",
-        "typer>=0.24.1",
-    ]
+    dependencies = [ "numpy", "omegaconf", "polars", "rich", "typer" ]
     description = "configurable collator and tokenizer"
     keywords = [ "data collation", "generative event models", "tokenization" ]
     license = "MIT"
@@ -19,7 +13,7 @@
     name = "cocoa"
     readme = { file = "README.md", content-type = "text/markdown" }
     requires-python = ">=3.11"
-    version = "26.3.0"
+    version = "26.3.1"
 
     [project.scripts]
         cocoa = "cocoa.cli:main"
@@ -28,7 +22,7 @@
         Repository = "https://github.com/bbj-lab/cocoa"
 
 [dependency-groups]
-    dev = [ "pip>=26.0.1", "ruff>=0.15.4" ]
+    dev = [ "pip", "ruff" ]
 
 
 [tool.ruff]
@@ -47,7 +41,8 @@
         select = [ "E", "F", "I" ]
 
         [tool.ruff.lint.isort]
-            known-first-party = [ "cocoa" ]
+            known-first-party       = [ "cocoa", "cotorra", "coreopsis" ]
+            split-on-trailing-comma = false
 
 [build-system]
     build-backend = "setuptools.build_meta"
