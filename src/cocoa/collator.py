@@ -8,48 +8,30 @@ import pathlib
 
 import numpy as np
 import polars as pl
-from omegaconf import OmegaConf
 
-from cocoa.logger import Logger
+from cocoa.configurable import Configurable
 
 
-class Collator:
+class Collator(Configurable):
+    default_file = "collation.yaml"
+
     def __init__(
         self,
-        main_cfg: pathlib.Path | str = None,
         collation_cfg: pathlib.Path | str = None,
+        raw_data_home: pathlib.Path | str = None,
+        processed_data_home: pathlib.Path | str = None,
         **kwargs,
     ):
-        main_cfg = OmegaConf.load(
-            pathlib.Path(main_cfg if main_cfg is not None else "./config/main.yaml")
-            .expanduser()
-            .resolve()
-        )
-        collation_cfg = OmegaConf.load(
-            pathlib.Path(
-                collation_cfg
-                if collation_cfg is not None
-                else main_cfg.collation_config
-            )
-            .expanduser()
-            .resolve()
-        )
-        self.cfg = OmegaConf.merge(
-            main_cfg, collation_cfg, {k: v for k, v in kwargs.items() if v is not None}
-        )  # cli overrides enter the configuration here
-        self.raw_data_home = (
-            pathlib.Path(self.cfg.get("raw_data_home", self.cfg.get("data_home")))
-            .expanduser()
-            .resolve()
-        )
-        self.processed_data_home = (
-            pathlib.Path(self.cfg.processed_data_home).expanduser().resolve()
+        super().__init__(collation_cfg, **kwargs)
+
+        self.raw_data_home, self.processed_data_home = map(
+            lambda p: pathlib.Path(p).expanduser().resolve(),
+            [raw_data_home, processed_data_home],
         )
         self.processed_data_home.mkdir(parents=True, exist_ok=True)
         self.reference_frame = None
         self.splits: tuple = ("train", "tuning", "held_out")
 
-        self.logger = Logger()
         self.logger.info("Collator initialized...")
         self.logger.info(f"{self.raw_data_home=}")
         self.logger.info(f"{self.processed_data_home=}")
@@ -163,14 +145,7 @@ class Collator:
             # if a date was cast to a time,
             # the default of 00:00:00 should be replaced with 23:59:59
             df = df.with_columns(
-                pl.when(pl.col(time).cast(pl.Datetime).dt.time() == pl.time(0, 0, 0))
-                .then(
-                    pl.col(time)
-                    .cast(pl.Datetime)
-                    .dt.replace(hour=23, minute=59, second=59)
-                )
-                .otherwise(pl.col(time).cast(pl.Datetime))
-                .alias(time)
+                pl.col(time).cast(pl.Datetime).dt.replace(hour=23, minute=59, second=59)
             )
         if reference_key is not None:
             df = df.join(self.reference_frame, on=reference_key, how="inner").filter(
@@ -188,21 +163,17 @@ class Collator:
             .cast(pl.Datetime)
             .dt.replace_time_zone(time_zone=None)
             .alias("time"),
-            pl.when(pl.col(code).is_not_null())
-            .then(
-                pl.concat_str(
-                    [
-                        pl.lit(prefix),
-                        pl.col(code)
-                        .cast(pl.String)
-                        .str.to_lowercase()
-                        .str.replace_all(r"\s+", "_"),
-                    ],
-                    separator="//",
-                    ignore_nulls=True,  # prefix is optional
-                )
-            )
-            .alias("code"),
+            pl.concat_str(
+                [
+                    pl.lit(prefix),
+                    pl.col(code)
+                    .cast(pl.String)
+                    .str.to_lowercase()
+                    .str.replace_all(r"\s+", "_"),
+                ],
+                separator="//",
+                ignore_nulls=True,
+            ).alias("code"),
             (pl.col(numeric_value) if numeric_value else pl.lit(None))
             .cast(pl.Float32)  # dumb
             .alias("numeric_value"),
@@ -277,7 +248,10 @@ class Collator:
 
 
 if __name__ == "__main__":
-    self = Collator(raw_data_home="./raw_data/raw-mimic/dev/")
+    self = Collator(
+        raw_data_home="./raw_data/raw-mimic/dev/",
+        processed_data_home="./processed/mimic/",
+    )
     self.save_all(verbose=True)
     # print(self.get_subject_splits())
     # breakpoint()

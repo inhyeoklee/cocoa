@@ -28,34 +28,21 @@ console = Console()
 
 @app.command()
 def collate(
-    main_config: Annotated[
-        Optional[pathlib.Path],
-        typer.Option(
-            "--main-config", "-m", help="Main configuration file (overrides default)"
-        ),
-    ] = None,
     collation_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
             "--collation-config",
             "-c",
-            help="Collation configuration file (overrides config)",
+            help="Collation configuration file (overrides default)",
         ),
     ] = None,
     raw_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--raw-data-home", "-r", help="Raw data directory (overrides config)"
-        ),
-    ] = None,
+        str, typer.Option("--raw-data-home", "-r", help="Raw data directory")
+    ] = ...,
     processed_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--processed-data-home",
-            "-p",
-            help="Processed data directory (overrides config)",
-        ),
-    ] = None,
+        str,
+        typer.Option("--processed-data-home", "-p", help="Processed data directory"),
+    ] = ...,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -70,13 +57,12 @@ def collate(
     """
     Collate raw data into a denormalized format.
 
-    Reads configuration from config/main.yaml and produces a MEDS-like
-    parquet file with collated events.
+    Reads collation configuration and produces a MEDS-like parquet file
+    with collated events.
     """
     with console.status("[bold green]Collating data..."):
         t0 = time.perf_counter()
         collator = Collator(
-            main_cfg=main_config,
             collation_cfg=collation_config,
             raw_data_home=raw_data_home,
             processed_data_home=processed_data_home,
@@ -91,34 +77,22 @@ def collate(
 
 @app.command()
 def tokenize(
-    main_config: Annotated[
-        Optional[pathlib.Path],
-        typer.Option(
-            "--main-config", "-m", help="Main configuration file (overrides default)"
-        ),
-    ] = None,
     tokenization_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
             "--tokenization-config",
             "-c",
-            help="Tokenization configuration file (overrides config)",
+            help="Tokenization configuration file (overrides default)",
         ),
     ] = None,
     processed_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--processed-data-home",
-            "-p",
-            help="Processed data directory (overrides config)",
-        ),
-    ] = None,
+        str,
+        typer.Option("--processed-data-home", "-p", help="Processed data directory"),
+    ] = ...,
     tokenizer_home: Annotated[
         Optional[str],
         typer.Option(
-            "--tokenizer-home",
-            "-t",
-            help="Use a pretrained tokenizer at this path (overrides config)",
+            "--tokenizer-home", "-t", help="Use a pretrained tokenizer at this path"
         ),
     ] = None,
     verbose: Annotated[
@@ -143,15 +117,11 @@ def tokenize(
         if tokenizer_home is not None:
             print(f"Using pretrained tokenizer from [cyan]{tokenizer_home}[/cyan]...")
             tokenizer = Tokenizer(
-                main_cfg=main_config, tokenization_cfg=tokenization_config
+                tokenization_cfg=tokenization_config,
+                processed_data_home=processed_data_home,
             ).load(tokenizer_home)
-            if processed_data_home is not None:
-                tokenizer.processed_data_home = (
-                    pathlib.Path(processed_data_home).expanduser().resolve()
-                )
         else:
             tokenizer = Tokenizer(
-                main_cfg=main_config,
                 tokenization_cfg=tokenization_config,
                 processed_data_home=processed_data_home,
             )
@@ -160,34 +130,24 @@ def tokenize(
         print(f"\n[green]✓[/green] Tokenization completed in {t1 - t0:.2f}s.")
     out_path = tokenizer.processed_data_home
     print(f"  Output: [cyan]{out_path}/tokens_times.parquet[/cyan]")
-    print(f"  Output: [cyan]{out_path}/tokenizer.yaml[/cyan]")
+    print(f"  Output: [cyan]{out_path}/tokens_vocab.json[/cyan]")
     print(f"  Vocabulary size: [cyan]{len(tokenizer)}[/cyan] tokens")
 
 
 @app.command()
 def winnow(
-    main_config: Annotated[
-        Optional[pathlib.Path],
-        typer.Option(
-            "--main-config", "-m", help="Main configuration file (overrides default)"
-        ),
-    ] = None,
     winnowing_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
             "--winnowing-config",
             "-c",
-            help="Winnowing configuration file (overrides config)",
+            help="Winnowing configuration file (overrides default)",
         ),
     ] = None,
     processed_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--processed-data-home",
-            "-p",
-            help="Processed data directory (overrides config)",
-        ),
-    ] = None,
+        str,
+        typer.Option("--processed-data-home", "-p", help="Processed data directory"),
+    ] = ...,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -207,9 +167,7 @@ def winnow(
     with console.status("[bold green]Winnowing data..."):
         t0 = time.perf_counter()
         winnower = Winnower(
-            main_cfg=main_config,
-            winnowing_cfg=winnowing_config,
-            processed_data_home=processed_data_home,
+            winnowing_cfg=winnowing_config, processed_data_home=processed_data_home
         )
         winnower.save_all(verbose=verbose)
         t1 = time.perf_counter()
@@ -221,45 +179,34 @@ def winnow(
 
 @app.command()
 def pipeline(
-    main_config: Annotated[
-        Optional[pathlib.Path],
-        typer.Option(
-            "--main-config", "-m", help="Main configuration file (overrides default)"
-        ),
-    ] = None,
     collation_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
-            "--collation-config", help="Collation configuration file (overrides config)"
+            "--collation-config",
+            help="Collation configuration file (overrides default)",
         ),
     ] = None,
     tokenization_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
             "--tokenization-config",
-            help="Tokenization configuration file (overrides config)",
+            help="Tokenization configuration file (overrides default)",
         ),
     ] = None,
     winnowing_config: Annotated[
         Optional[pathlib.Path],
         typer.Option(
-            "--winnowing-config", help="Winnowing configuration file (overrides config)"
+            "--winnowing-config",
+            help="Winnowing configuration file (overrides default)",
         ),
     ] = None,
     raw_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--raw-data-home", "-r", help="Raw data directory (overrides config)"
-        ),
-    ] = None,
+        str, typer.Option("--raw-data-home", "-r", help="Raw data directory")
+    ] = ...,
     processed_data_home: Annotated[
-        Optional[str],
-        typer.Option(
-            "--processed-data-home",
-            "-p",
-            help="Processed data directory (overrides config)",
-        ),
-    ] = None,
+        str,
+        typer.Option("--processed-data-home", "-p", help="Processed data directory"),
+    ] = ...,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -273,20 +220,17 @@ def pipeline(
     print("[bold]Running full pipeline[/bold]\n")
     t0 = time.perf_counter()
     collate(
-        main_config=main_config,
         collation_config=collation_config,
         raw_data_home=raw_data_home,
         processed_data_home=processed_data_home,
         verbose=verbose,
     )
     tokenize(
-        main_config=main_config,
         tokenization_config=tokenization_config,
         processed_data_home=processed_data_home,
         verbose=verbose,
     )
     winnow(
-        main_config=main_config,
         winnowing_config=winnowing_config,
         processed_data_home=processed_data_home,
         verbose=verbose,
